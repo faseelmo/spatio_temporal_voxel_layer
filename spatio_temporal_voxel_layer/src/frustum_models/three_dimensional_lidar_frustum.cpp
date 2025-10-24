@@ -42,15 +42,17 @@ namespace geometry
 
 /*****************************************************************************/
 ThreeDimensionalLidarFrustum::ThreeDimensionalLidarFrustum(
-  const double & vFOV, const double & vFOVPadding, const double & hFOV,
-  const double & min_dist, const double & max_dist)
-: _vFOV(vFOV), _vFOVPadding(vFOVPadding), _hFOV(hFOV),
+  const double & vFOVTop, const double & vFOVBottom, const double & vFOVPadding, 
+  const double & hFOV, const double & min_dist, const double & max_dist)
+: _vFOVTop(vFOVTop), _vFOVBottom(vFOVBottom), _vFOVPadding(vFOVPadding), _hFOV(hFOV),
   _min_d(min_dist), _max_d(max_dist)
 /*****************************************************************************/
 {
   _hFOVhalf = _hFOV / 2.0;
-  _tan_vFOVhalf = tan(_vFOV / 2.0);
-  _tan_vFOVhalf_squared = _tan_vFOVhalf * _tan_vFOVhalf;
+  _tan_vFOV_top = tan(_vFOVTop);
+  _tan_vFOV_top_squared =  _tan_vFOV_top * _tan_vFOV_top; 
+  _tan_vFOV_bottom = tan(_vFOVBottom);
+  _tan_vFOV_bottom_squared =  _tan_vFOV_bottom * _tan_vFOV_bottom; 
   _min_d_squared = _min_d * _min_d;
   _max_d_squared = _max_d * _max_d;
   _full_hFOV = false;
@@ -92,12 +94,25 @@ bool ThreeDimensionalLidarFrustum::IsInside(const openvdb::Vec3d & pt)
     return false;
   }
 
-  // // Check if inside frustum valid vFOV
-  const double v_padded = fabs(transformed_pt[2]) + _vFOVPadding;
-  if (( v_padded * v_padded / radial_distance_squared) >
-    _tan_vFOVhalf_squared)
-  {
-    return false;
+  const double z = transformed_pt[2]; 
+
+  // Check if inside frustum valid vFOV
+  if (z >= 0.0 ) {
+    // Point is above the sensor's horizontal plane 
+    const double v_padded = z + _vFOVPadding;
+    if (( v_padded * v_padded / radial_distance_squared) > _tan_vFOV_top_squared)
+    {
+      return false; 
+    }
+
+  } else  {
+    // Point is below the sensor's horizontal plane 
+    const double v_padded = -z + _vFOVPadding;
+    if (( v_padded * v_padded / radial_distance_squared) > _tan_vFOV_bottom_squared)
+    {
+      return false; 
+    }
+  
   }
 
   // Check if inside frustum valid hFOV, unless hFOV is full-circle (360 degree)
